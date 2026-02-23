@@ -95,19 +95,25 @@
             <p><strong>Summary:</strong> Wrapped displays your Spotify listening statistics. We access only the data necessary to provide this functionality. We do not sell your data, we do not use advertising, and we do not track you across other apps or websites.</p>
         </div>
 
-        <h2>1. Authorization and Consent</h2>
-        <p>Wrapped requires you to authorize access to your Spotify account using Spotify's official OAuth 2.0 authentication system. When you tap "Connect with Spotify," you are redirected to Spotify's login page where you can review the specific permissions requested.</p>
-        <p>By authorizing the connection, you consent to Wrapped accessing the following data from your Spotify account:</p>
+        <h2>1. Authorization and User Consent</h2>
+        <p>Wrapped collects data only after you explicitly authorize access. No data is collected until you complete the following consent process:</p>
+        <ul>
+            <li>When you tap "Connect with Spotify," you are redirected to Spotify's official OAuth 2.0 consent screen.</li>
+            <li>On this screen, Spotify displays the specific permissions Wrapped is requesting.</li>
+            <li>You must explicitly approve these permissions before any data is shared with Wrapped.</li>
+            <li>If you decline or cancel, no data is collected and you are returned to the app.</li>
+        </ul>
+        <p>This consent is independent of whether sign-in succeeds. You retain full control over whether to authorize access, and authorization can be revoked at any time.</p>
+        <p>By authorizing the connection, you consent to Wrapped accessing:</p>
         <ul>
             <li>Your Spotify user ID and display name</li>
             <li>Your recently played tracks</li>
             <li>Your top tracks and top artists</li>
         </ul>
         <p>We do not receive or store your Spotify password. Authentication is handled entirely by Spotify, and we only receive a secure access token to retrieve your data.</p>
-        <p>You may revoke this authorization at any time through your <a href="https://www.spotify.com/account/apps/" target="_blank">Spotify Account Settings</a>.</p>
 
         <h2>2. Information We Collect</h2>
-        <p>We collect only the information necessary to provide the app's functionality:</p>
+        <p>We collect only the information necessary to provide the app's core functionality. Data collection begins only after you have granted explicit consent via Spotify's OAuth authorization screen.</p>
         <ul>
             <li><strong>Spotify Profile Data:</strong> Your Spotify user ID and display name, used to identify your account within the app.</li>
             <li><strong>Listening History:</strong> Your recently played tracks, including track names, artist names, album names, and timestamps.</li>
@@ -118,7 +124,7 @@
             <li>Your Spotify password or payment information</li>
             <li>Your location data</li>
             <li>Your contacts, photos, or other device data</li>
-            <li>Device advertising identifiers (IDFA)</li>
+            <li>Apple's Identifier for Advertisers (IDFA)</li>
             <li>Any data from other apps on your device</li>
         </ul>
 
@@ -130,63 +136,74 @@
             <li>Generating charts and visualizations of your listening habits</li>
             <li>Storing your listening history so you can view it across app sessions</li>
         </ul>
-        <p>We do not use your data for any other purpose. We do not use your data for advertising, marketing, or profiling.</p>
+        <p>We do not use your data for any other purpose. We do not use your data for advertising, marketing, profiling, or sale to third parties.</p>
 
-        <h2>4. Tracking and Advertising</h2>
-        <p>Wrapped does <strong>not</strong> track you. Specifically:</p>
+        <h2>4. Tracking, Advertising, and Third-Party SDKs</h2>
+        <p>Wrapped does <strong>not</strong> track you across apps or websites. Specifically:</p>
         <ul>
-            <li>We do not collect or use the iOS Advertising Identifier (IDFA).</li>
+            <li>We do not collect or use Apple's Identifier for Advertisers (IDFA).</li>
             <li>We do not track your activity across other companies' apps or websites.</li>
-            <li>We do not use any third-party advertising services.</li>
-            <li>We do not use third-party analytics services.</li>
-            <li>We do not participate in data brokers or sell your information.</li>
+            <li>We do not use any third-party advertising networks or services.</li>
+            <li>We do not use third-party analytics SDKs (such as Firebase Analytics, Google Analytics, Mixpanel, or similar services).</li>
+            <li>We do not use third-party crash reporting SDKs that collect personal data.</li>
+            <li>We do not incorporate any third-party code or SDKs that collect personal information beyond what is described in this policy.</li>
+            <li>We do not participate in data brokers or sell your information to any party.</li>
         </ul>
-        <p>Because we do not engage in any form of tracking, Wrapped does not display the App Tracking Transparency (ATT) permission prompt. This is fully compliant with Apple's ATT framework requirements.</p>
+        <p>Because we do not engage in any form of tracking as defined by Apple, Wrapped does not display the App Tracking Transparency (ATT) permission prompt. This is fully compliant with Apple's App Tracking Transparency framework, which only requires the prompt when an app tracks users across apps or websites owned by other companies.</p>
 
         <h2>5. Third-Party Services</h2>
         <p>Wrapped integrates with one third-party service:</p>
         <ul>
             <li><strong>Spotify:</strong> We use the Spotify Web API to access your listening data with your explicit authorization. Spotify's collection and use of your data is governed by <a href="https://www.spotify.com/privacy" target="_blank">Spotify's Privacy Policy</a>. Wrapped accesses Spotify data in accordance with the <a href="https://developer.spotify.com/terms" target="_blank">Spotify Developer Terms of Service</a>.</li>
         </ul>
-        <p>We do not share your personal data with any other third parties.</p>
+        <p>We do not integrate any other third-party services, SDKs, or code that collects personal data. We do not share your personal data with any third parties for their own purposes.</p>
 
         <h2>6. Data Storage and Security</h2>
-        <p>We implement reasonable security measures to protect your data:</p>
+        <p>We implement reasonable security measures appropriate for the nature of the data we process:</p>
         <ul>
-            <li>All network communication uses HTTPS encryption (TLS).</li>
-            <li>Spotify access tokens are stored securely in the iOS Keychain, which provides hardware-backed encryption.</li>
-            <li>Server-side data is stored in access-controlled databases.</li>
-            <li>We do not store your Spotify password.</li>
+            <li>All network communication between the app and our servers uses HTTPS encryption (TLS 1.2 or higher).</li>
+            <li>Spotify access tokens are stored securely in the iOS Keychain, which provides hardware-backed encryption on supported devices.</li>
+            <li>Server-side data is stored in access-controlled databases with restricted permissions.</li>
+            <li>We do not store your Spotify password at any time.</li>
         </ul>
-        <p>While we take reasonable precautions, no method of electronic storage or transmission is 100% secure. We cannot guarantee absolute security of your data.</p>
+        <p>While we take reasonable precautions to protect your data, no method of electronic storage or transmission is completely secure. We cannot guarantee absolute security.</p>
 
         <h2>7. Data Retention</h2>
-        <p>We retain your data as follows:</p>
+        <p>We retain your data according to the following practices:</p>
         <ul>
+            <li><strong>When retention begins:</strong> Data retention begins only after you have granted explicit consent via Spotify's OAuth authorization.</li>
             <li><strong>Active accounts:</strong> Your listening history and profile data are retained for as long as your account remains active and you continue to use the app.</li>
-            <li><strong>Account deletion:</strong> If you request deletion of your account, all personal data associated with your account will be permanently deleted from our servers within 30 days of the request.</li>
-            <li><strong>Revoked access:</strong> If you revoke Spotify access, we will no longer be able to sync new data. Previously synced data will remain until you request deletion.</li>
-            <li><strong>Local data:</strong> Logging out of the app removes authentication tokens from your device. You may also delete the app to remove all local data.</li>
+            <li><strong>Account deletion:</strong> If you request deletion of your account, all personal data associated with your account will be permanently deleted from our servers within 30 days of the request. This includes your profile information and all listening history.</li>
+            <li><strong>Revoked access:</strong> If you revoke Spotify access, we will no longer sync new data. Previously synced data will remain on our servers until you explicitly request deletion.</li>
+            <li><strong>Server logs:</strong> We may retain basic server logs (such as IP addresses and request timestamps) for up to 30 days for security and debugging purposes. These logs are not associated with your personal listening data and are automatically deleted after this period.</li>
+            <li><strong>Backups:</strong> Data may persist in encrypted backups for up to 30 days after deletion from primary storage, after which backups are overwritten.</li>
+            <li><strong>Anonymized data:</strong> We do not retain anonymized or aggregated data derived from your personal information after account deletion.</li>
+            <li><strong>Local data:</strong> Logging out of the app removes authentication tokens from your device. Deleting the app removes all locally stored data.</li>
         </ul>
 
-        <h2>8. Your Rights</h2>
+        <h2>8. Your Rights and How to Exercise Them</h2>
         <p>You have the following rights regarding your data:</p>
         <ul>
             <li><strong>Access:</strong> You can view your data within the app at any time.</li>
             <li><strong>Deletion:</strong> You may request deletion of your account and all associated data by contacting us at the email address below. We will process deletion requests within 30 days.</li>
-            <li><strong>Revocation:</strong> You may revoke Wrapped's access to your Spotify account at any time through your <a href="https://www.spotify.com/account/apps/" target="_blank">Spotify Account Settings</a>.</li>
-            <li><strong>Portability:</strong> Upon request, we can provide you with a copy of the data we hold about you.</li>
+            <li><strong>Portability:</strong> Upon request, we can provide you with a copy of the data we hold about you in a standard format.</li>
+        </ul>
+        <p><strong>How to revoke consent and stop data collection:</strong></p>
+        <ul>
+            <li><strong>Within the app:</strong> You can log out from the Settings screen. This removes your authentication tokens and stops all data collection. Your previously synced data remains on our servers until you request deletion.</li>
+            <li><strong>Via Spotify:</strong> You can revoke Wrapped's access to your Spotify account at any time through your <a href="https://www.spotify.com/account/apps/" target="_blank">Spotify Account Settings</a>. This immediately prevents Wrapped from accessing any new data from Spotify.</li>
+            <li><strong>Complete removal:</strong> To fully remove your data, log out within the app, revoke access via Spotify, and contact us to request deletion of your server-side data.</li>
         </ul>
         <p>To exercise any of these rights, please contact us using the information provided below.</p>
 
         <h2>9. Children's Privacy</h2>
-        <p>Wrapped is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us immediately. If we become aware that we have collected personal information from a child under 13 without parental consent, we will take steps to delete that information.</p>
+        <p>Wrapped is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us immediately. If we become aware that we have collected personal information from a child under 13 without parental consent, we will take steps to delete that information promptly.</p>
 
         <h2>10. Changes to This Policy</h2>
         <p>We may update this Privacy Policy from time to time to reflect changes in our practices or for legal, operational, or regulatory reasons. When we make changes:</p>
         <ul>
             <li>We will update the "Last updated" date at the top of this policy.</li>
-            <li>For significant changes, we will provide notice within the app.</li>
+            <li>For material changes that affect how we collect or use your data, we will provide prominent notice within the app before the changes take effect.</li>
             <li>Your continued use of the app after changes are posted constitutes acceptance of the updated policy.</li>
         </ul>
         <p>We encourage you to review this policy periodically.</p>
