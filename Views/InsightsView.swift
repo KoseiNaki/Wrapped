@@ -451,9 +451,14 @@ struct InsightBarChart: View {
     var visibleCount: Int? = nil
     @State private var animateIn = false
 
-    private let yAxisWidth: CGFloat = 28
-    private let chartInset: CGFloat = 24  // VL(10) + XL(10) + 2 gaps of 2
-    private let tickPad: CGFloat = 7      // spacer to center tick label at bar endpoints
+    private let chartInset: CGFloat = 24  // value label(10) + x label(10) + 2 gaps(2)
+    private let tickPad: CGFloat = 7      // top/bottom spacer to align ticks with bar edges
+
+    // Compute y-axis width from the widest tick label
+    private var yAxisWidth: CGFloat {
+        let maxLabel = yAxisTicks(maxVal: niceMax(data.map { showMinutes ? $0.minutes : Double($0.trackCount) }.max() ?? 1)).map { yLabel($0) }.max(by: { $0.count < $1.count }) ?? "0"
+        return CGFloat(maxLabel.count) * 7.0 + 4  // ~7pt per char + small padding
+    }
 
     init(data: [ChartDataPoint], showMinutes: Bool = true, accentColor: Color = .emerald600, visibleCount: Int? = nil) {
         self.data = data
@@ -466,18 +471,19 @@ struct InsightBarChart: View {
         let values = data.map { showMinutes ? $0.minutes : Double($0.trackCount) }
         let rawMax = max(values.max() ?? 1, 1)
         let maxVal = niceMax(rawMax)
+        let axisW = yAxisWidth
 
         GeometryReader { geo in
             let isScrollable = visibleCount != nil && data.count > (visibleCount ?? data.count)
             let effectiveCount = visibleCount ?? data.count
-            let barAreaWidth = geo.size.width - yAxisWidth
+            let barAreaWidth = geo.size.width - axisW
             let spacing: CGFloat = 4
             let barWidth = max((barAreaWidth - CGFloat(max(effectiveCount - 1, 0)) * spacing) / CGFloat(max(effectiveCount, 1)), 20)
             let totalContentWidth = CGFloat(data.count) * (barWidth + spacing) - spacing
             let barAvailH = geo.size.height - chartInset
 
             HStack(alignment: .top, spacing: 0) {
-                yAxisView(maxVal: maxVal, height: geo.size.height)
+                yAxisView(maxVal: maxVal, axisW: axisW, height: geo.size.height)
 
                 if isScrollable {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -492,6 +498,7 @@ struct InsightBarChart: View {
                         .frame(maxWidth: .infinity)
                 }
             }
+            .clipped()
         }
         .onAppear {
             withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2)) {
@@ -500,20 +507,21 @@ struct InsightBarChart: View {
         }
     }
 
-    private func yAxisView(maxVal: Double, height: CGFloat) -> some View {
+    private func yAxisView(maxVal: Double, axisW: CGFloat, height: CGFloat) -> some View {
         let ticks = yAxisTicks(maxVal: maxVal)
         return VStack(alignment: .trailing, spacing: 0) {
             Spacer().frame(height: tickPad)
             ForEach(Array(ticks.reversed().enumerated()), id: \.offset) { i, tick in
-                if i > 0 { Spacer() }
+                if i > 0 { Spacer(minLength: 2) }
                 Text(yLabel(tick))
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(.textTertiary)
-                    .fixedSize()
+                    .lineLimit(1)
             }
             Spacer().frame(height: tickPad)
         }
-        .frame(width: yAxisWidth, height: height)
+        .frame(width: axisW, height: height)
+        .clipped()
     }
 
     private func barsView(barWidth: CGFloat, spacing: CGFloat, maxVal: Double,
@@ -546,46 +554,48 @@ struct InsightBarChart: View {
                         .foregroundColor(Calendar.current.isDateInToday(point.date) ? .emerald800 : .textTertiary)
                         .frame(width: barWidth)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.5)
                 }
                 .frame(height: height)
             }
         }
     }
 
-    // x.y format with "h" suffix: 2h36m → "2.6h", 45m → "0.8h"
+    // x.y format with "h" suffix: 2h36m → "2.6h"
     private func formatDecimalHours(_ minutes: Double) -> String {
         let hours = Int(minutes) / 60
         let remainingMinutes = Int(minutes) % 60
         let decimal = Int(round(Double(remainingMinutes) / 6.0))
-        if decimal >= 10 {
-            return "\(hours + 1).0h"
-        }
+        if decimal >= 10 { return "\(hours + 1).0h" }
         return "\(hours).\(decimal)h"
     }
 
-    // Round up to next nice multiple of the tick interval
     private func niceMax(_ raw: Double) -> Double {
         guard raw > 0 else { return showMinutes ? 60 : 10 }
         let interval = tickInterval(forMax: raw)
         return ceil(raw / interval) * interval
     }
 
-    // Pick a consistent tick interval that yields 4–6 ticks
+    // Always produces ~4-5 ticks. Minutes uses whole-hour steps; counts scale with magnitude.
     private func tickInterval(forMax raw: Double) -> Double {
         if showMinutes {
             let h = raw / 60.0
-            if h <= 1   { return 15 }    // 15-min intervals
-            if h <= 4   { return 60 }    // 1-h intervals
-            if h <= 12  { return 180 }   // 3-h intervals
-            if h <= 24  { return 360 }   // 6-h intervals
-            return 720                   // 12-h intervals
+            if h < 1   { return 15 }   // < 1h  → 15m steps  (up to 4 ticks)
+            if h < 4   { return 60 }   // 1-4h  → 1h steps
+            if h < 10  { return 120 }  // 4-10h → 2h steps
+            if h < 25  { return 300 }  // 10-25h→ 5h steps
+            if h < 60  { return 600 }  // 25-60h→10h steps
+            return 1200                // >60h  →20h steps
         } else {
-            if raw <= 20  { return 5 }
-            if raw <= 50  { return 10 }
-            if raw <= 200 { return 50 }
-            if raw <= 500 { return 100 }
-            return 250
+            if raw <= 20    { return 5 }
+            if raw <= 50    { return 10 }
+            if raw <= 200   { return 50 }
+            if raw <= 500   { return 100 }
+            if raw <= 2000  { return 500 }
+            if raw <= 5000  { return 1000 }
+            if raw <= 10000 { return 2000 }
+            if raw <= 25000 { return 5000 }
+            return 10000
         }
     }
 
@@ -597,10 +607,7 @@ struct InsightBarChart: View {
 
     private func yLabel(_ val: Double) -> String {
         if showMinutes {
-            if val >= 60 {
-                let h = Int(round(val / 60))
-                return "\(h)h"
-            }
+            if val >= 60 { return "\(Int(round(val / 60)))h" }
             return "\(Int(val))m"
         }
         return "\(Int(val))"
