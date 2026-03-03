@@ -424,6 +424,184 @@ class StatsViewModel: ObservableObject {
         }
     }
 
+    // Histogram data driven by selectedPeriod + selectedPeriodOffset
+    func getHistogramData() -> [ChartDataPoint] {
+        guard let stats = stats else { return [] }
+
+        let calendar = Calendar.current
+        let today = Date()
+        let isoFormatter = DateFormatter()
+        isoFormatter.dateFormat = "yyyy-MM-dd"
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEE"
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "d"
+
+        var statsLookup: [String: DailyStatResponse] = [:]
+        for stat in stats.dailyStats {
+            statsLookup[stat.date] = stat
+        }
+
+        switch selectedPeriod {
+        case .day:
+            return []
+
+        case .week:
+            var cal = calendar
+            cal.firstWeekday = weekStartsOnSunday ? 1 : 2
+            let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)) ?? today
+            let targetWeekStart = cal.date(byAdding: .weekOfYear, value: selectedPeriodOffset, to: weekStart) ?? weekStart
+
+            var data: [ChartDataPoint] = []
+            for dayOffset in 0..<7 {
+                guard let date = cal.date(byAdding: .day, value: dayOffset, to: targetWeekStart) else { continue }
+                let dateKey = isoFormatter.string(from: date)
+                let stat = statsLookup[dateKey]
+                data.append(ChartDataPoint(
+                    date: date,
+                    dayOfWeek: dayFormatter.string(from: date),
+                    dateLabel: dateFormatter.string(from: date),
+                    minutes: stat?.minutes ?? 0,
+                    trackCount: stat?.trackCount ?? 0
+                ))
+            }
+            return data
+
+        case .month:
+            let targetMonth = calendar.date(byAdding: .month, value: selectedPeriodOffset, to: today) ?? today
+            let components = calendar.dateComponents([.year, .month], from: targetMonth)
+            let monthStart = calendar.date(from: components)!
+            guard let range = calendar.range(of: .day, in: .month, for: monthStart) else { return [] }
+
+            var weekData: [ChartDataPoint] = []
+            var weekMinutes: Double = 0
+            var weekTracks: Int = 0
+            var weekNum = 1
+            var weekStartDate = monthStart
+
+            for day in range {
+                guard let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) else { continue }
+                let dateKey = isoFormatter.string(from: date)
+                if let stat = statsLookup[dateKey] {
+                    weekMinutes += stat.minutes
+                    weekTracks += stat.trackCount
+                }
+
+                if day % 7 == 0 || day == range.upperBound - 1 {
+                    weekData.append(ChartDataPoint(
+                        date: weekStartDate,
+                        dayOfWeek: "Wk \(weekNum)",
+                        dateLabel: "Wk \(weekNum)",
+                        minutes: weekMinutes,
+                        trackCount: weekTracks
+                    ))
+                    weekMinutes = 0
+                    weekTracks = 0
+                    weekNum += 1
+                    if let nextDate = calendar.date(byAdding: .day, value: 1, to: date) {
+                        weekStartDate = nextDate
+                    }
+                }
+            }
+            return weekData
+
+        case .year:
+            var yearComponents = calendar.dateComponents([.year], from: today)
+            yearComponents.year = (yearComponents.year ?? 2025) + selectedPeriodOffset
+            yearComponents.month = 1
+            yearComponents.day = 1
+            let yearStart = calendar.date(from: yearComponents) ?? today
+
+            let monthFormatter = DateFormatter()
+            monthFormatter.dateFormat = "MMM"
+            var data: [ChartDataPoint] = []
+
+            for month in 0..<12 {
+                guard let monthDate = calendar.date(byAdding: .month, value: month, to: yearStart) else { continue }
+                guard let monthRange = calendar.range(of: .day, in: .month, for: monthDate) else { continue }
+
+                var monthMinutes: Double = 0
+                var monthTracks: Int = 0
+
+                for day in monthRange {
+                    guard let date = calendar.date(byAdding: .day, value: day - 1, to: monthDate) else { continue }
+                    let dateKey = isoFormatter.string(from: date)
+                    if let stat = statsLookup[dateKey] {
+                        monthMinutes += stat.minutes
+                        monthTracks += stat.trackCount
+                    }
+                }
+
+                data.append(ChartDataPoint(
+                    date: monthDate,
+                    dayOfWeek: monthFormatter.string(from: monthDate),
+                    dateLabel: monthFormatter.string(from: monthDate),
+                    minutes: monthMinutes,
+                    trackCount: monthTracks
+                ))
+            }
+            return data
+
+        case .all:
+            let years = Set(stats.dailyStats.compactMap { stat -> Int? in
+                guard let date = parseDate(stat.date) else { return nil }
+                return calendar.component(.year, from: date)
+            }).sorted()
+
+            guard !years.isEmpty else { return [] }
+
+            var data: [ChartDataPoint] = []
+            for year in years {
+                var yearMinutes: Double = 0
+                var yearTracks: Int = 0
+
+                for stat in stats.dailyStats {
+                    guard let date = parseDate(stat.date) else { continue }
+                    if calendar.component(.year, from: date) == year {
+                        yearMinutes += stat.minutes
+                        yearTracks += stat.trackCount
+                    }
+                }
+
+                var comps = DateComponents()
+                comps.year = year
+                comps.month = 1
+                comps.day = 1
+                let yearDate = calendar.date(from: comps) ?? Date()
+
+                data.append(ChartDataPoint(
+                    date: yearDate,
+                    dayOfWeek: "\(year)",
+                    dateLabel: "\(year)",
+                    minutes: yearMinutes,
+                    trackCount: yearTracks
+                ))
+            }
+            return data
+        }
+    }
+
+    var daysInPeriod: Int {
+        let calendar = Calendar.current
+        let today = Date()
+
+        switch selectedPeriod {
+        case .day: return 1
+        case .week: return 7
+        case .month:
+            let date = calendar.date(byAdding: .month, value: selectedPeriodOffset, to: today) ?? today
+            return calendar.range(of: .day, in: .month, for: date)?.count ?? 30
+        case .year:
+            let date = calendar.date(byAdding: .year, value: selectedPeriodOffset, to: today) ?? today
+            return calendar.range(of: .day, in: .year, for: date)?.count ?? 365
+        case .all:
+            guard let stats = stats, !stats.dailyStats.isEmpty else { return 1 }
+            let dates = stats.dailyStats.compactMap { parseDate($0.date) }
+            guard let earliest = dates.min(), let latest = dates.max() else { return 1 }
+            return max((calendar.dateComponents([.day], from: earliest, to: latest).day ?? 0) + 1, 1)
+        }
+    }
+
     func colorForValue(_ value: Double, max: Double) -> Color {
         guard max > 0 && value > 0 else {
             return Color(red: 0.9, green: 0.96, blue: 0.9)
