@@ -576,26 +576,19 @@ struct InsightBarChart: View {
         return ceil(raw / interval) * interval
     }
 
-    // Always produces ~4-5 ticks. Minutes uses whole-hour steps; counts scale with magnitude.
+    // Pick smallest nice interval that produces ≤5 ticks (targeting ~4)
     private func tickInterval(forMax raw: Double) -> Double {
         if showMinutes {
+            // Work in hours, then convert back to minutes
             let h = raw / 60.0
-            if h < 1   { return 15 }   // < 1h  → 15m steps  (up to 4 ticks)
-            if h < 4   { return 60 }   // 1-4h  → 1h steps
-            if h < 10  { return 120 }  // 4-10h → 2h steps
-            if h < 25  { return 300 }  // 10-25h→ 5h steps
-            if h < 60  { return 600 }  // 25-60h→10h steps
-            return 1200                // >60h  →20h steps
+            let target = h / 4.0
+            let niceH: [Double] = [0.25, 0.5, 1, 2, 3, 5, 10, 20, 25, 50, 100, 200, 500]
+            let intervalH = niceH.first { $0 >= target } ?? 500
+            return intervalH * 60
         } else {
-            if raw <= 20    { return 5 }
-            if raw <= 50    { return 10 }
-            if raw <= 200   { return 50 }
-            if raw <= 500   { return 100 }
-            if raw <= 2000  { return 500 }
-            if raw <= 5000  { return 1000 }
-            if raw <= 10000 { return 2000 }
-            if raw <= 25000 { return 5000 }
-            return 10000
+            let target = raw / 4.0
+            let nice: [Double] = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 25000, 50000, 100000]
+            return nice.first { $0 >= target } ?? 100000
         }
     }
 
