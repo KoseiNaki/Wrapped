@@ -34,10 +34,14 @@ struct MarqueeText: View {
                         startAutoScroll()
                     }
                 }
-                .offset(x: offset)
+                // Center when text fits; scroll otherwise
+                .offset(x: (textWidth > 0 && textWidth <= containerWidth)
+                    ? (containerWidth - textWidth) / 2
+                    : offset)
                 .gesture(
                     DragGesture(minimumDistance: 1)
                         .onChanged { value in
+                            guard textWidth > containerWidth else { return }
                             userInteracted = true
                             scrollTask?.cancel()
                             isAutoScrolling = false
@@ -45,6 +49,7 @@ struct MarqueeText: View {
                             offset = min(0, max(maxOffset, offset + value.translation.width))
                         }
                         .onEnded { _ in
+                            guard textWidth > containerWidth else { return }
                             scheduleRestart()
                         }
                 )
@@ -476,6 +481,7 @@ struct InsightBarChart: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         barsView(barWidth: barWidth, spacing: spacing, maxVal: maxVal, height: geo.size.height)
                             .frame(width: totalContentWidth)
+                            .padding(.horizontal, spacing)
                     }
                 } else {
                     barsView(barWidth: barWidth, spacing: spacing, maxVal: maxVal, height: geo.size.height)
@@ -532,7 +538,7 @@ struct InsightBarChart: View {
                     Text(point.dayOfWeek)
                         .font(.system(size: 8, weight: Calendar.current.isDateInToday(point.date) ? .bold : .medium))
                         .foregroundColor(Calendar.current.isDateInToday(point.date) ? .emerald800 : .textTertiary)
-                        .frame(width: barWidth + spacing)
+                        .frame(width: barWidth)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
