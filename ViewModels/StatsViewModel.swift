@@ -473,10 +473,12 @@ class StatsViewModel: ObservableObject {
             let monthStart = calendar.date(from: components)!
             guard let range = calendar.range(of: .day, in: .month, for: monthStart) else { return [] }
 
+            let rangeFmt = DateFormatter()
+            rangeFmt.dateFormat = "M/d"
+
             var weekData: [ChartDataPoint] = []
             var weekMinutes: Double = 0
             var weekTracks: Int = 0
-            var weekNum = 1
             var weekStartDate = monthStart
 
             for day in range {
@@ -488,16 +490,16 @@ class StatsViewModel: ObservableObject {
                 }
 
                 if day % 7 == 0 || day == range.upperBound - 1 {
+                    let label = "\(rangeFmt.string(from: weekStartDate))-\(rangeFmt.string(from: date))"
                     weekData.append(ChartDataPoint(
                         date: weekStartDate,
-                        dayOfWeek: "Wk \(weekNum)",
-                        dateLabel: "Wk \(weekNum)",
+                        dayOfWeek: label,
+                        dateLabel: label,
                         minutes: weekMinutes,
                         trackCount: weekTracks
                     ))
                     weekMinutes = 0
                     weekTracks = 0
-                    weekNum += 1
                     if let nextDate = calendar.date(byAdding: .day, value: 1, to: date) {
                         weekStartDate = nextDate
                     }

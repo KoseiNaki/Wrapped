@@ -1,6 +1,108 @@
 // File: Views/InsightsView.swift
 import SwiftUI
 
+// MARK: - Marquee Text (auto-scrolling for long text)
+
+struct MarqueeText: View {
+    let text: String
+    let font: Font
+    let color: Color
+
+    @State private var textWidth: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
+    @State private var offset: CGFloat = 0
+    @State private var isAutoScrolling = false
+    @State private var userInteracted = false
+    @State private var restartTask: Task<Void, Never>? = nil
+    @State private var scrollTask: Task<Void, Never>? = nil
+
+    private let scrollSpeed: Double = 30 // points per second
+
+    var body: some View {
+        GeometryReader { geo in
+            Text(text)
+                .font(font)
+                .foregroundColor(color)
+                .fixedSize()
+                .background(GeometryReader { textGeo in
+                    Color.clear.preference(key: TextWidthKey.self, value: textGeo.size.width)
+                })
+                .onPreferenceChange(TextWidthKey.self) { width in
+                    textWidth = width
+                    containerWidth = geo.size.width
+                    if width > geo.size.width {
+                        startAutoScroll()
+                    }
+                }
+                .offset(x: offset)
+                .gesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { value in
+                            userInteracted = true
+                            scrollTask?.cancel()
+                            isAutoScrolling = false
+                            let maxOffset = -(textWidth - containerWidth)
+                            offset = min(0, max(maxOffset, offset + value.translation.width))
+                        }
+                        .onEnded { _ in
+                            scheduleRestart()
+                        }
+                )
+        }
+        .frame(height: 30)
+        .clipped()
+        .onDisappear {
+            restartTask?.cancel()
+            scrollTask?.cancel()
+        }
+    }
+
+    private func startAutoScroll() {
+        guard textWidth > containerWidth else { return }
+        scrollTask?.cancel()
+        isAutoScrolling = true
+
+        scrollTask = Task { @MainActor in
+            while !Task.isCancelled && isAutoScrolling {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s initial wait
+                guard !Task.isCancelled && isAutoScrolling else { break }
+
+                let scrollDistance = textWidth - containerWidth
+                let duration = scrollDistance / scrollSpeed
+
+                withAnimation(.linear(duration: duration)) {
+                    offset = -scrollDistance
+                }
+
+                try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000) + 1_000_000_000)
+                guard !Task.isCancelled && isAutoScrolling else { break }
+
+                withAnimation(.none) {
+                    offset = 0
+                }
+            }
+        }
+    }
+
+    private func scheduleRestart() {
+        restartTask?.cancel()
+        restartTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
+            guard !Task.isCancelled else { return }
+            userInteracted = false
+            offset = 0
+            startAutoScroll()
+        }
+    }
+}
+
+private struct TextWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - Insight Tab Enum
 
 enum InsightTab: Int, CaseIterable {
@@ -341,74 +443,44 @@ struct InsightBarChart: View {
     let data: [ChartDataPoint]
     let showMinutes: Bool
     let accentColor: Color
+    var visibleCount: Int? = nil
     @State private var animateIn = false
-    
-    private let yAxisWidth: CGFloat = 32
-    
-    init(data: [ChartDataPoint], showMinutes: Bool = true, accentColor: Color = .emerald600) {
+
+    private let yAxisWidth: CGFloat = 36
+
+    init(data: [ChartDataPoint], showMinutes: Bool = true, accentColor: Color = .emerald600, visibleCount: Int? = nil) {
         self.data = data
         self.showMinutes = showMinutes
         self.accentColor = accentColor
+        self.visibleCount = visibleCount
     }
-    
+
     var body: some View {
         let values = data.map { showMinutes ? $0.minutes : Double($0.trackCount) }
-        let maxVal = max(values.max() ?? 1, 1)
-        
-        GeometryReader { geo in
-            let chartWidth = geo.size.width - yAxisWidth
-            let spacing: CGFloat = 4
-            let barWidth = max((chartWidth - CGFloat(max(data.count - 1, 0)) * spacing) / CGFloat(max(data.count, 1)), 4)
-            
-            HStack(alignment: .top, spacing: 0) {
-                // Y-axis
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text(yLabel(maxVal))
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.textTertiary)
-                    Spacer()
-                    Text(yLabel(maxVal / 2))
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.textTertiary)
-                    Spacer()
-                    Text("0")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.textTertiary)
-                        .padding(.bottom, 16)
-                }
-                .frame(width: yAxisWidth, height: geo.size.height)
-                
-                // Bars
-                HStack(alignment: .bottom, spacing: spacing) {
-                    ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
-                        let value = showMinutes ? point.minutes : Double(point.trackCount)
-                        let barHeight = max(geo.size.height * 0.75 * CGFloat(value / maxVal), 4)
-                        
-                        VStack(spacing: 4) {
-                            Spacer(minLength: 0)
+        let rawMax = max(values.max() ?? 1, 1)
+        let maxVal = showMinutes ? niceMax(rawMax) : niceMax(rawMax)
 
-                            Text(showMinutes ? formatBarTime(Int(value)) : "\(Int(value))")
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundColor(.textTertiary)
-                            
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [accentColor, accentColor.opacity(0.6)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .frame(width: barWidth, height: animateIn ? barHeight : 4)
-                            
-                            Text(point.dayOfWeek)
-                                .font(.system(size: 9, weight: Calendar.current.isDateInToday(point.date) ? .bold : .medium))
-                                .foregroundColor(Calendar.current.isDateInToday(point.date) ? .emerald800 : .textTertiary)
-                                .frame(width: barWidth)
-                        }
+        GeometryReader { geo in
+            let isScrollable = visibleCount != nil && data.count > (visibleCount ?? data.count)
+            let effectiveCount = visibleCount ?? data.count
+            let barAreaWidth = geo.size.width - yAxisWidth
+            let spacing: CGFloat = 4
+            let barWidth = max((barAreaWidth - CGFloat(max(effectiveCount - 1, 0)) * spacing) / CGFloat(max(effectiveCount, 1)), 20)
+            let totalContentWidth = CGFloat(data.count) * (barWidth + spacing) - spacing
+
+            HStack(alignment: .top, spacing: 0) {
+                // Y-axis with even intervals
+                yAxisView(maxVal: maxVal, height: geo.size.height)
+
+                if isScrollable {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        barsView(barWidth: barWidth, spacing: spacing, maxVal: maxVal, height: geo.size.height)
+                            .frame(width: totalContentWidth)
                     }
+                } else {
+                    barsView(barWidth: barWidth, spacing: spacing, maxVal: maxVal, height: geo.size.height)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
         .onAppear {
@@ -417,7 +489,90 @@ struct InsightBarChart: View {
             }
         }
     }
-    
+
+    private func yAxisView(maxVal: Double, height: CGFloat) -> some View {
+        let ticks = yAxisTicks(maxVal: maxVal)
+        return VStack(alignment: .trailing, spacing: 0) {
+            ForEach(Array(ticks.reversed().enumerated()), id: \.offset) { i, tick in
+                if i > 0 { Spacer() }
+                Text(yLabel(tick))
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.textTertiary)
+                    .fixedSize()
+            }
+            Spacer().frame(height: 16)
+        }
+        .frame(width: yAxisWidth, height: height)
+    }
+
+    private func barsView(barWidth: CGFloat, spacing: CGFloat, maxVal: Double, height: CGFloat) -> some View {
+        HStack(alignment: .bottom, spacing: spacing) {
+            ForEach(Array(data.enumerated()), id: \.element.id) { index, point in
+                let value = showMinutes ? point.minutes : Double(point.trackCount)
+                let barHeight = max(height * 0.72 * CGFloat(value / maxVal), 4)
+
+                VStack(spacing: 2) {
+                    Spacer(minLength: 0)
+
+                    Text(showMinutes ? formatDecimalHours(point.minutes) : "\(Int(value))")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(.textTertiary)
+                        .fixedSize()
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [accentColor, accentColor.opacity(0.6)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: barWidth, height: animateIn ? barHeight : 4)
+
+                    Text(point.dayOfWeek)
+                        .font(.system(size: 8, weight: Calendar.current.isDateInToday(point.date) ? .bold : .medium))
+                        .foregroundColor(Calendar.current.isDateInToday(point.date) ? .emerald800 : .textTertiary)
+                        .frame(width: barWidth + spacing)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+            }
+        }
+    }
+
+    // x.y format: hours + (minutes/60 * 10 rounded) / 10
+    private func formatDecimalHours(_ minutes: Double) -> String {
+        let hours = Int(minutes) / 60
+        let remainingMinutes = Int(minutes) % 60
+        let decimal = Int(round(Double(remainingMinutes) / 6.0)) // 0-10 scale → tenths
+        if decimal >= 10 {
+            return "\(hours + 1).0"
+        }
+        return "\(hours).\(decimal)"
+    }
+
+    private func niceMax(_ raw: Double) -> Double {
+        if raw <= 0 { return 1 }
+        if showMinutes {
+            // Round up to nearest nice hour value
+            let hours = raw / 60.0
+            if hours <= 1 { return ceil(raw / 15) * 15 }
+            if hours <= 5 { return ceil(hours) * 60 }
+            if hours <= 20 { return ceil(hours / 5) * 5 * 60 }
+            return ceil(hours / 10) * 10 * 60
+        } else {
+            if raw <= 10 { return ceil(raw / 2) * 2 }
+            if raw <= 50 { return ceil(raw / 10) * 10 }
+            if raw <= 200 { return ceil(raw / 50) * 50 }
+            return ceil(raw / 100) * 100
+        }
+    }
+
+    private func yAxisTicks(maxVal: Double) -> [Double] {
+        let count = 4
+        return (0...count).map { Double($0) / Double(count) * maxVal }
+    }
+
     private func yLabel(_ val: Double) -> String {
         if showMinutes {
             if val >= 60 {
@@ -427,18 +582,6 @@ struct InsightBarChart: View {
             return "\(Int(val))m"
         }
         return "\(Int(val))"
-    }
-
-    private func formatBarTime(_ minutes: Int) -> String {
-        if minutes >= 60 {
-            let h = minutes / 60
-            let m = minutes % 60
-            if m == 0 {
-                return "\(h)h"
-            }
-            return "\(h):\(String(format: "%02d", m))"
-        }
-        return "\(minutes)m"
     }
 }
 
@@ -590,7 +733,7 @@ struct ListeningInsightTab: View {
                     Text("\(totalHours)")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(.goldPrimary)
-                    Text("hours")
+                    Text(totalHours == 1 ? "hour" : "hours")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white.opacity(0.5))
                         .textCase(.uppercase)
@@ -624,11 +767,19 @@ struct ListeningInsightTab: View {
     }
 
     private var histogramSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.spacing12) {
+        let visibleCount: Int? = {
+            switch viewModel.selectedPeriod {
+            case .year: return 6
+            case .all: return 5
+            default: return nil
+            }
+        }()
+
+        return VStack(alignment: .leading, spacing: Spacing.spacing12) {
             SectionHeader(title: "Histogram")
 
-            InsightBarChart(data: viewModel.getHistogramData(), showMinutes: true, accentColor: .emerald600)
-                .frame(height: 140)
+            InsightBarChart(data: viewModel.getHistogramData(), showMinutes: true, accentColor: .emerald600, visibleCount: visibleCount)
+                .frame(height: 160)
                 .premiumCard()
         }
     }
@@ -799,11 +950,19 @@ struct StreamsInsightTab: View {
     }
 
     private var histogramSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.spacing12) {
+        let visibleCount: Int? = {
+            switch viewModel.selectedPeriod {
+            case .year: return 6
+            case .all: return 5
+            default: return nil
+            }
+        }()
+
+        return VStack(alignment: .leading, spacing: Spacing.spacing12) {
             SectionHeader(title: "Histogram")
 
-            InsightBarChart(data: viewModel.getHistogramData(), showMinutes: false, accentColor: .emerald700)
-                .frame(height: 140)
+            InsightBarChart(data: viewModel.getHistogramData(), showMinutes: false, accentColor: .emerald700, visibleCount: visibleCount)
+                .frame(height: 160)
                 .premiumCard()
         }
     }
@@ -979,10 +1138,12 @@ struct TracksInsightTab: View {
                         .background(Color.goldPrimary)
                         .cornerRadius(Radius.full)
 
-                    Text(track.name)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+                    MarqueeText(
+                        text: track.name,
+                        font: .system(size: 24, weight: .bold),
+                        color: .white
+                    )
+                    .frame(maxWidth: .infinity)
 
                     Text(track.artistNames.joined(separator: ", "))
                         .font(.bodySmall)
@@ -995,6 +1156,13 @@ struct TracksInsightTab: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.spacing24)
+            .padding(.horizontal, Spacing.spacing16)
+
+            // Period heading
+            Text(viewModel.selectedPeriodLabel.uppercased())
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white.opacity(0.5))
+                .padding(.bottom, 4)
 
             HStack(spacing: 0) {
                 VStack(spacing: 2) {
@@ -1421,7 +1589,7 @@ struct GenresInsightTab: View {
 
                 // Genre distribution pie chart
                 if let genres = viewModel.stats?.topGenres, !genres.isEmpty {
-                    genreDistributionSection(genres: Array(genres.prefix(6)))
+                    genreDistributionSection(genres: Array(genres.prefix(10)))
                 }
 
                 // All genres list with bars
