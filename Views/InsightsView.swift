@@ -1301,6 +1301,15 @@ struct TracksInsightTab: View {
                                         .background(Color.emerald50)
                                         .cornerRadius(4)
                                 }
+                                if let popularity = track.popularity {
+                                    Text("\(popularity)")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .cornerRadius(4)
+                                }
                             }
                         }
                     }
@@ -1564,6 +1573,15 @@ struct ArtistsInsightTab: View {
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background(Color.emerald50)
+                                        .cornerRadius(4)
+                                }
+                                if let popularity = artist.popularity {
+                                    Text("\(popularity)")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
                                         .cornerRadius(4)
                                 }
                             }

@@ -193,6 +193,7 @@ struct TopArtistResponse: Codable, Identifiable {
     let playCount: Int
     let totalMinutes: Double
     let genres: [String]?
+    let popularity: Int?
 }
 
 struct TopTrackResponse: Codable, Identifiable {
